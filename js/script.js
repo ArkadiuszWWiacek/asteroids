@@ -56,6 +56,12 @@ let myGameArea = {
 	clear: function () {
 		this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
 	},
+	stop: function () {
+		clearInterval(this.interval);
+		ctxAW.textAlign = 'center';
+		ctxAW.font = 'bold 80px Arial';
+		ctxAW.fillText('GAME OVER', 400, 300);
+	},
 };
 
 function updateGameArea() {
@@ -93,8 +99,6 @@ function updateGameArea() {
 	backgroundLayers[2].newPos();
 	backgroundLayers[2].update();
 
-	myGamePiece.newPos();
-	myGamePiece.update();
 	// asteroids = asteroids.filter(asteroid => asteroid);
 	asteroids.forEach(function (a, index) {
 		if (a.toBeRemoved) {
@@ -117,6 +121,9 @@ function updateGameArea() {
 	shots.forEach(function (s) {
 		s.update();
 	});
+	myGamePiece.newPos();
+	myGamePiece.update();
+	myGamePiece.checkCollision();
 }
 
 function Starship() {
@@ -131,6 +138,7 @@ function Starship() {
 	this.translationY = 300;
 	this.speedX = 0;
 	this.speedY = 0;
+	this.durability = 300;
 }
 Starship.prototype = {
 	get shipDirection() {
@@ -158,6 +166,14 @@ Starship.prototype = {
 		ctxAW.fill();
 		ctxAW.stroke();
 		ctxAW.restore();
+		ctxAW.fillStyle = 'red';
+		ctxAW.beginPath();
+		ctxAW.rect(20, 20, this.durability, 20);
+		ctxAW.fill();
+		ctxAW.strokeStyle = 'red';
+		ctxAW.beginPath();
+		ctxAW.rect(20, 20, 300, 20);
+		ctxAW.stroke();
 	},
 	newPos() {
 		this.translationX += this.speedX;
@@ -174,6 +190,29 @@ Starship.prototype = {
 	triggerShot() {
 		let shot = new Shot(this.translationX, this.translationY, this.angle);
 		return shot;
+	},
+	checkCollision() {
+		// console.log(`${this.translationX}, ${(this, this.translationY)}`);
+		let that = this;
+		asteroids.forEach(function (a) {
+			let asteroidPositionX = a.translationX;
+			let asteroidPositionY = a.translationY;
+			if (
+				that.translationX < asteroidPositionX + a.radius &&
+				that.translationX > asteroidPositionX - a.radius &&
+				that.translationY < asteroidPositionY + a.radius &&
+				that.translationY > asteroidPositionY - a.radius
+			) {
+				// console.log('kolizja');
+				let damage = a.radius / 2;
+				if (damage > that.durability) {
+					that.durability = 0;
+					myGameArea.stop();
+				} else {
+					that.durability -= a.radius / 3;
+				}
+			}
+		});
 	},
 };
 
@@ -223,7 +262,7 @@ Shot.prototype = {
 function Asteroid(numVertices, minX, maxX, minY, maxY) {
 	this.positionX = 0;
 	this.positionY = 0;
-	this.color = 'grey';
+	this.color;
 	this.width = 20;
 	this.height = 20;
 	this.directionX;
@@ -238,8 +277,10 @@ function Asteroid(numVertices, minX, maxX, minY, maxY) {
 	this.maxX = maxX;
 	this.minY = minY;
 	this.maxY = maxY;
-	this.vertices = this.generateRandomVertices();
 	this.toBeRemoved = false;
+	this.radius = this.randomNumber(5, 30);
+	this.numSides = this.randomNumber(4, 8);
+	this.anglesParameters = this.generateShapeParameters();
 }
 Asteroid.prototype = {
 	waste() {
@@ -265,60 +306,44 @@ Asteroid.prototype = {
 		else this.directionY = -this.randomNumber(0.1, 2);
 		return [x, y];
 	},
+	generateColor() {
+		let tempPartOfColor = this.randomNumber(50, 155);
+		this.color = `rgb(${tempPartOfColor}, ${tempPartOfColor}, ${tempPartOfColor})`;
+	},
 	get rotation() {
 		if (this.angle >= 360) {
 			this.angle = 0 + (this.angle - 360);
 		}
 		return this.angle * (Math.PI / 180);
 	},
-	// Funkcja pomocnicza do sprawdzania czy dwie krawędzie się przecinają
-	intersect(a, b, c, d) {
-		function ccw(a, b, c) {
-			return (c.y - a.y) * (b.x - a.x) > (b.y - a.y) * (c.x - a.x);
+	generateShapeParameters() {
+		let angles = [0];
+		// let angle = 0;
+		for (let i = 0; i < this.numSides; i++) {
+			angles.push((angles[angles.length - 1] += (this.randomNumber(0.5, 1) * Math.PI * 2.5) / this.numSides));
 		}
-		return ccw(a, c, d) !== ccw(b, c, d) && ccw(a, b, c) !== ccw(a, b, d);
-	},
-	// Generowanie losowych współrzędnych dla wierzchołków
-	generateRandomVertices() {
-		let vertices = [];
-		// Losowanie współrzędnych dla każdego wierzchołka
-		for (let i = 0; i < this.numVertices; i++) {
-			vertices.push({
-				x: Math.random() * (this.maxX - this.minX) + this.minX,
-				y: Math.random() * (this.maxY - this.minY) + this.minY,
-			});
-		}
-		// Sprawdzenie, czy wygenerowany wielokąt jest poprawny (nie przecina się)
-		for (let i = 0; i < vertices.length; i++) {
-			const a = vertices[i];
-			const b = vertices[(i + 1) % vertices.length];
-			for (let j = i + 1; j < vertices.length; j++) {
-				const c = vertices[j];
-				const d = vertices[(j + 1) % vertices.length];
-				if (this.intersect(a, b, c, d)) {
-					// Jeśli krawędzie się przecinają, generuj nowe współrzędne
-					return this.generateRandomVertices();
-				}
-			}
-		}
-
-		return vertices;
+		return angles;
 	},
 	draw() {
+		const center = { x: 0, y: 0 };
+
 		ctxAW.fillStyle = this.color;
 		ctxAW.save();
 		ctxAW.translate(this.translationX, this.translationY);
 		ctxAW.rotate(this.rotation);
 		ctxAW.beginPath();
-		ctxAW.moveTo(this.vertices[0].x, this.vertices[0].y);
-		for (let i = 1; i < this.vertices.length; i++) {
-			ctxAW.lineTo(this.vertices[i].x, this.vertices[i].y);
+		for (let i = 0; i < this.numSides; i++) {
+			angle = this.anglesParameters[i];
+			const x = center.x + this.radius * Math.cos(angle);
+			const y = center.y + this.radius * Math.sin(angle);
+			ctxAW.lineTo(x, y);
 		}
 		ctxAW.closePath();
 		ctxAW.fill();
 		ctxAW.restore();
 	},
 	start() {
+		this.generateColor();
 		this.translationX = this.generateRandomStartPosition()[0];
 		this.translationY = this.generateRandomStartPosition()[1];
 	},
@@ -342,7 +367,6 @@ function Background(numberOfObjects, minR, maxR) {
 	this.backgroundObjects = [];
 	this.speedX = 0;
 	this.speedY = 0;
-	this.color = 'white';
 }
 Background.prototype = {
 	randomNumber(minValue, maxValue) {
@@ -354,20 +378,12 @@ Background.prototype = {
 			temp.push(this.randomNumber(-50, 850));
 			temp.push(this.randomNumber(-50, 650));
 			temp.push(this.randomNumber(this.minRadius, this.maxRadius));
-			temp.push(`rgba(255, 255, 255, ${this.randomNumber(0.1, 1)}`);
+			let tempPartOfColor = this.randomNumber(100, 255);
+			temp.push(`rgb(${tempPartOfColor}, ${tempPartOfColor}, ${tempPartOfColor}`);
 			this.backgroundObjects.push(temp);
 		}
 	},
 	drawBackground() {
-		// ctxAW = myGameArea.context;
-		// ctxAW.fillStyle = 'white';
-		// ctxAW.save();
-		// ctxAW.translate(this.translationX, this.translationY);
-		// ctxAW.beginPath();
-		// ctxAW.arc(this.backgroundObjects[0][0], this.backgroundObjects[0][1], this.backgroundObjects[0][2], 0, Math.PI * 2);
-		// ctxAW.closePath();
-		// ctxAW.fill();
-		// ctxAW.restore();
 		for (let i of this.backgroundObjects) {
 			ctxAW = myGameArea.context;
 			ctxAW.fillStyle = i[3];

@@ -7,8 +7,16 @@
 body {
 	text-align: center;
 	background-color: black;
+
+	p {
+		color: white;
+	}
 }
 
 canvas {
 	background-color: rgb(25, 25, 25);
+}
+
+.myCanvas {
+	cursor: crosshair;
 }

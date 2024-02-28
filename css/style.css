@@ -8,7 +8,14 @@ body {
   text-align: center;
   background-color: black;
 }
+body p {
+  color: white;
+}
 
 canvas {
   background-color: rgb(25, 25, 25);
+}
+
+.myCanvas {
+  cursor: crosshair;
 }/*# sourceMappingURL=style.css.map */
