@@ -7,6 +7,8 @@ let cRect;
 let shots = [];
 let asteroids = [];
 let asteroid;
+let score;
+let numberOfAsteroids = 5;
 
 let myGamePiece;
 let canvasOffset = [];
@@ -25,6 +27,8 @@ function startGame() {
 		asteroids.push(new Asteroid(5, -30, 30, -30, 30));
 		asteroids[i].start();
 	}
+	score = new Score();
+	score.draw();
 }
 
 let myGameArea = {
@@ -57,6 +61,7 @@ let myGameArea = {
 		this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
 	},
 	stop: function () {
+		window.removeEventListener('mousedown', function () {}, true);
 		clearInterval(this.interval);
 		ctxAW.textAlign = 'center';
 		ctxAW.font = 'bold 80px Arial';
@@ -105,7 +110,7 @@ function updateGameArea() {
 			asteroids.splice(index, 1);
 		}
 	});
-	if (asteroids.length < 5) {
+	if (asteroids.length < numberOfAsteroids) {
 		let asteroid = new Asteroid(5, -30, 30, -30, 30);
 		asteroid.start();
 		asteroids.push(asteroid);
@@ -119,11 +124,13 @@ function updateGameArea() {
 		}
 	});
 	shots.forEach(function (s) {
+		s.checkCollision();
 		s.update();
 	});
 	myGamePiece.newPos();
 	myGamePiece.update();
 	myGamePiece.checkCollision();
+	score.draw();
 }
 
 function Starship() {
@@ -256,6 +263,29 @@ Shot.prototype = {
 		this.positionY = this.shot[1];
 		this.waste();
 		this.draw();
+	},
+	checkCollision() {
+		// console.log(`${this.translationX}, ${(this, this.translationY)}`);
+		let that = this;
+		asteroids.forEach(function (a) {
+			let asteroidPositionX = a.translationX;
+			let asteroidPositionY = a.translationY;
+			if (
+				that.positionX < asteroidPositionX + a.radius &&
+				that.positionX > asteroidPositionX - a.radius &&
+				that.positionY < asteroidPositionY + a.radius &&
+				that.positionY > asteroidPositionY - a.radius
+			) {
+				that.toBeRemoved = true;
+				// console.log('trafienie');
+				score.checkScore(5);
+				a.radius -= 2;
+				if (a.radius < 5) {
+					a.toBeRemoved = true;
+					score.checkScore(8);
+				}
+			}
+		});
 	},
 };
 
@@ -409,5 +439,25 @@ Background.prototype = {
 		// console.log(this.speedY);
 		ctxAW = myGameArea.context;
 		this.drawBackground();
+	},
+};
+
+function Score() {
+	this.value = 0;
+	this.currentThreshold = 0;
+}
+Score.prototype = {
+	draw() {
+		ctxAW.textAlign = 'right';
+		ctxAW.font = 'bold 30px Arial';
+		ctxAW.fillText(`SCORE ${this.value}`, 780, 40);
+	},
+	checkScore(x) {
+		this.currentThreshold += x;
+		if (this.currentThreshold > 100) {
+			numberOfAsteroids += 1;
+			this.currentThreshold = this.currentThreshold - 100;
+		}
+		this.value += x;
 	},
 };
