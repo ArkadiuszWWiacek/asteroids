@@ -1,11 +1,13 @@
 const SCREEN_LOG = document.querySelector('#screen-log');
 const LINE_LOG = document.querySelector('#line-log');
+const START_NEW_GAME_BUTTON = document.querySelector('.startNewGame');
 let canvasAW;
 let ctxAW;
 let starship;
 let cRect;
 let shots = [];
 let asteroids = [];
+let aidKits = [];
 let asteroid;
 let score;
 let numberOfAsteroids = 5;
@@ -15,6 +17,7 @@ let canvasOffset = [];
 let backgroundLayers = [];
 
 function startGame() {
+	START_NEW_GAME_BUTTON.classList.add('hideObject');
 	myGameArea.start();
 	backgroundLayers.push(new Background(40, 0.1, 1));
 	backgroundLayers[0].start();
@@ -61,7 +64,7 @@ let myGameArea = {
 		this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
 	},
 	stop: function () {
-		window.removeEventListener('mousedown', function () {}, true);
+		START_NEW_GAME_BUTTON.classList.remove('hideObject');
 		clearInterval(this.interval);
 		ctxAW.textAlign = 'center';
 		ctxAW.font = 'bold 80px Arial';
@@ -71,8 +74,8 @@ let myGameArea = {
 
 function updateGameArea() {
 	myGameArea.clear();
-	myGamePiece.speedX = 0;
-	myGamePiece.speedY = 0;
+	myGamePiece.speedX = decreaseSpeed(myGamePiece.speedX);
+	myGamePiece.speedY = decreaseSpeed(myGamePiece.speedY);
 	backgroundLayers[1].speedX = 0;
 	backgroundLayers[1].speedY = 0;
 	backgroundLayers[2].speedX = 0;
@@ -127,9 +130,18 @@ function updateGameArea() {
 		s.checkCollision();
 		s.update();
 	});
+	aidKits.forEach(function (ak, index) {
+		if (ak.toBeRemoved) {
+			delete aidKits[index];
+		}
+	});
+	aidKits.forEach(function (ak) {
+		ak.update();
+	});
 	myGamePiece.newPos();
 	myGamePiece.update();
-	myGamePiece.checkCollision();
+	myGamePiece.checkCollisionWithGroup(asteroids);
+	myGamePiece.checkCollisionWithGroup(aidKits);
 	score.draw();
 }
 
@@ -198,28 +210,29 @@ Starship.prototype = {
 		let shot = new Shot(this.translationX, this.translationY, this.angle);
 		return shot;
 	},
-	checkCollision() {
-		// console.log(`${this.translationX}, ${(this, this.translationY)}`);
+	checkCollisionWithGroup(group) {
 		let that = this;
-		asteroids.forEach(function (a) {
-			let asteroidPositionX = a.translationX;
-			let asteroidPositionY = a.translationY;
-			if (
-				that.translationX < asteroidPositionX + a.radius &&
-				that.translationX > asteroidPositionX - a.radius &&
-				that.translationY < asteroidPositionY + a.radius &&
-				that.translationY > asteroidPositionY - a.radius
-			) {
-				// console.log('kolizja');
-				let damage = a.radius / 2;
-				if (damage > that.durability) {
-					that.durability = 0;
-					myGameArea.stop();
-				} else {
-					that.durability -= a.radius / 3;
-				}
+		group.forEach(function (o) {
+			if (that.checkCollision(o)) {
+				o.interact(that);
+				console.log('aid');
 			}
 		});
+	},
+	checkCollision(object) {
+		let that = this;
+		let objectPositionX = object.translationX;
+		let objectPositionY = object.translationY;
+		if (
+			that.translationX < objectPositionX + object.radius &&
+			that.translationX > objectPositionX - object.radius &&
+			that.translationY < objectPositionY + object.radius &&
+			that.translationY > objectPositionY - object.radius
+		) {
+			return true;
+		} else {
+			return false;
+		}
 	},
 };
 
@@ -280,6 +293,10 @@ Shot.prototype = {
 				// console.log('trafienie');
 				score.checkScore(5);
 				a.radius -= 2;
+				if (a.radius < 10 && a.recoveryPack) {
+					a.toBeRemoved = true;
+					aidKits.push(new RecoveryPack(a.translationX, a.translationY, a.directionX, a.directionY));
+				}
 				if (a.radius < 5) {
 					a.toBeRemoved = true;
 					score.checkScore(8);
@@ -311,6 +328,7 @@ function Asteroid(numVertices, minX, maxX, minY, maxY) {
 	this.radius = this.randomNumber(5, 30);
 	this.numSides = this.randomNumber(4, 8);
 	this.anglesParameters = this.generateShapeParameters();
+	this.recoveryPack = this.recoverPackRandom();
 }
 Asteroid.prototype = {
 	waste() {
@@ -318,8 +336,25 @@ Asteroid.prototype = {
 			this.toBeRemoved = true;
 		}
 	},
+	interact(object) {
+		let damage = this.radius / 2;
+		if (damage > object.durability) {
+			object.durability = 0;
+			myGameArea.stop();
+		} else {
+			object.durability -= this.radius / 3;
+		}
+	},
 	randomNumber(minValue, maxValue) {
 		return Math.random() * (maxValue - minValue) + minValue;
+	},
+	recoverPackRandom() {
+		let randomValue = this.randomNumber(0, 100);
+		if (randomValue < 10) {
+			return true;
+		} else {
+			return false;
+		}
 	},
 	generateRandomStartPosition() {
 		let x;
@@ -461,3 +496,60 @@ Score.prototype = {
 		this.value += x;
 	},
 };
+
+function RecoveryPack(translationX, translationY, directionX, directionY) {
+	this.recoveryValue = 50;
+	this.positionX = 0;
+	this.positionY = 0;
+	this.directionX = directionX / 2;
+	this.directionY = directionY / 2;
+	this.translationX = translationX;
+	this.translationY = translationY;
+	this.speed = 0;
+	this.color = 'red';
+	this.image = new Image(50, 50);
+	this.image.src = './img/first-aid-kit.png';
+	this.toBeRemoved = false;
+	this.radius = 20;
+}
+RecoveryPack.prototype = {
+	draw() {
+		ctxAW.drawImage(this.image, this.translationX, this.translationY, 20, 20);
+	},
+	update() {
+		ctxAW = myGameArea.context;
+		this.translationX += this.directionX;
+		this.translationY += this.directionY;
+		this.draw();
+	},
+	waste() {
+		if (this.translationX > 860 || this.translationX < -60 || this.translationY > 660 || this.translationY < -60) {
+			this.toBeRemoved = true;
+		}
+	},
+	interact(object) {
+		let aid = object.durability + this.recoveryValue;
+		if (aid > 300) {
+			object.durability = 300;
+		} else {
+			object.durability = aid;
+		}
+		this.toBeRemoved = true;
+	},
+};
+
+function startNewGame() {
+	location.reload();
+}
+
+function decreaseSpeed(currentSpeed) {
+	let returnedSpeed;
+	if (currentSpeed < 0.1 && currentSpeed > -0.1) {
+		returnedSpeed = 0;
+	} else if (currentSpeed < -0.1) {
+		returnedSpeed = currentSpeed + 0.01;
+	} else if (currentSpeed > 0.1) {
+		returnedSpeed = currentSpeed - 0.01;
+	}
+	return returnedSpeed;
+}

@@ -19,4 +19,21 @@ canvas {
 
 .myCanvas {
 	cursor: crosshair;
+	z-index: 0;
+}
+
+.startNewGame {
+	text-transform: uppercase;
+	position: absolute;
+	top: 500px;
+	left: 50vh;
+	z-index: 10;
+	background-color: transparent;
+	border: 0;
+	color: white;
+	font-size: 30px;
+}
+
+.hideObject {
+	display: none;
 }
