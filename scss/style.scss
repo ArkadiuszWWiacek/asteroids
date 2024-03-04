@@ -1,3 +1,7 @@
+$viewportHorizontal: 100vw;
+$buttonWidth: 270px;
+$buttonPosition: calc((#{$viewportHorizontal} - #{$buttonWidth}) / 2);
+
 * {
 	box-sizing: border-box;
 	margin: 0;
@@ -25,8 +29,8 @@ canvas {
 .startNewGame {
 	text-transform: uppercase;
 	position: absolute;
-	top: 500px;
-	left: 50vh;
+	top: 600px;
+	left: $buttonPosition;
 	z-index: 10;
 	background-color: transparent;
 	border: 0;

@@ -64,13 +64,18 @@ let myGameArea = {
 		this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
 	},
 	stop: function () {
-		START_NEW_GAME_BUTTON.classList.remove('hideObject');
+		startNewGameButton();
 		clearInterval(this.interval);
 		ctxAW.textAlign = 'center';
 		ctxAW.font = 'bold 80px Arial';
 		ctxAW.fillText('GAME OVER', 400, 300);
 	},
 };
+
+function startNewGameButton() {
+	START_NEW_GAME_BUTTON.classList.remove('hideObject');
+	console.log(canvasOffset[0]);
+}
 
 function updateGameArea() {
 	myGameArea.clear();
@@ -215,7 +220,6 @@ Starship.prototype = {
 		group.forEach(function (o) {
 			if (that.checkCollision(o)) {
 				o.interact(that);
-				console.log('aid');
 			}
 		});
 	},
