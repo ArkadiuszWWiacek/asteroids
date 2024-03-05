@@ -56,8 +56,8 @@ let myGameArea = {
 			myGamePiece.directionY = e.clientY - canvasOffset[1];
 		});
 		window.addEventListener('mousedown', function () {
-			shots.push(myGamePiece.triggerShot());
-			shots[shots.length - 1].start();
+			shots.push(...myGamePiece.triggerShot());
+			// shots[shots.length - 1].start();
 		});
 	},
 	clear: function () {
@@ -163,6 +163,8 @@ function Starship() {
 	this.speedX = 0;
 	this.speedY = 0;
 	this.durability = 300;
+	this.firePower = 1;
+	this.fireBonusTimer = 0;
 }
 Starship.prototype = {
 	get shipDirection() {
@@ -190,6 +192,10 @@ Starship.prototype = {
 		ctxAW.fill();
 		ctxAW.stroke();
 		ctxAW.restore();
+		ctxAW.fillStyle = 'green';
+		ctxAW.beginPath();
+		ctxAW.rect(20, 580, this.fireBonusTimer / 5, 5);
+		ctxAW.fill();
 		ctxAW.fillStyle = 'red';
 		ctxAW.beginPath();
 		ctxAW.rect(20, 20, this.durability, 20);
@@ -209,11 +215,20 @@ Starship.prototype = {
 	},
 	update() {
 		ctxAW = myGameArea.context;
+		if (this.fireBonusTimer > 0) {
+			this.fireBonusTimer--;
+		} else if (this.fireBonusTimer === 0) {
+			this.firePower = 1;
+		}
 		this.drawStarship();
 	},
 	triggerShot() {
-		let shot = new Shot(this.translationX, this.translationY, this.angle);
-		return shot;
+		const angles = [0, -0.05, 0.05, -0.1, 0.1];
+		let shots = [];
+		for (let i = 0; i < this.firePower; i++) {
+			shots.push(new Shot(this.translationX, this.translationY, this.angle + angles[i]));
+		}
+		return shots;
 	},
 	checkCollisionWithGroup(group) {
 		let that = this;
@@ -282,7 +297,6 @@ Shot.prototype = {
 		this.draw();
 	},
 	checkCollision() {
-		// console.log(`${this.translationX}, ${(this, this.translationY)}`);
 		let that = this;
 		asteroids.forEach(function (a) {
 			let asteroidPositionX = a.translationX;
@@ -297,13 +311,16 @@ Shot.prototype = {
 				// console.log('trafienie');
 				score.checkScore(5);
 				a.radius -= 2;
-				if (a.radius < 10 && a.recoveryPack) {
-					a.toBeRemoved = true;
-					aidKits.push(new RecoveryPack(a.translationX, a.translationY, a.directionX, a.directionY));
-				}
-				if (a.radius < 5) {
-					a.toBeRemoved = true;
-					score.checkScore(8);
+				a.generateShapeParameters();
+				if (a.radius < 10) {
+					let bonus = a.randomBonusPack();
+					if (bonus) {
+						a.toBeRemoved = true;
+						aidKits.push(bonus);
+					} else if (a.radius < 5) {
+						a.toBeRemoved = true;
+						score.checkScore(8);
+					}
 				}
 			}
 		});
@@ -331,8 +348,8 @@ function Asteroid(numVertices, minX, maxX, minY, maxY) {
 	this.toBeRemoved = false;
 	this.radius = this.randomNumber(5, 30);
 	this.numSides = this.randomNumber(4, 8);
-	this.anglesParameters = this.generateShapeParameters();
-	this.recoveryPack = this.recoverPackRandom();
+	this.anglesParameters = [];
+	this.bonusPack;
 }
 Asteroid.prototype = {
 	waste() {
@@ -352,12 +369,14 @@ Asteroid.prototype = {
 	randomNumber(minValue, maxValue) {
 		return Math.random() * (maxValue - minValue) + minValue;
 	},
-	recoverPackRandom() {
+	randomBonusPack() {
 		let randomValue = this.randomNumber(0, 100);
-		if (randomValue < 10) {
-			return true;
+		if (randomValue < 5) {
+			return new RecoveryPack(this.translationX, this.translationY, this.directionX, this.directionY);
+		} else if (randomValue > 98.5) {
+			return new TripleShot(this.translationX, this.translationY, this.directionX, this.directionY);
 		} else {
-			return false;
+			return null;
 		}
 	},
 	generateRandomStartPosition() {
@@ -391,7 +410,7 @@ Asteroid.prototype = {
 		for (let i = 0; i < this.numSides; i++) {
 			angles.push((angles[angles.length - 1] += (this.randomNumber(0.5, 1) * Math.PI * 2.5) / this.numSides));
 		}
-		return angles;
+		this.anglesParameters = angles;
 	},
 	draw() {
 		const center = { x: 0, y: 0 };
@@ -413,6 +432,7 @@ Asteroid.prototype = {
 	},
 	start() {
 		this.generateColor();
+		this.generateShapeParameters();
 		this.translationX = this.generateRandomStartPosition()[0];
 		this.translationY = this.generateRandomStartPosition()[1];
 	},
@@ -474,8 +494,6 @@ Background.prototype = {
 		this.translationY += this.speedY;
 	},
 	update() {
-		// console.log(this.speedX);
-		// console.log(this.speedY);
 		ctxAW = myGameArea.context;
 		this.drawBackground();
 	},
@@ -538,6 +556,45 @@ RecoveryPack.prototype = {
 		} else {
 			object.durability = aid;
 		}
+		this.toBeRemoved = true;
+	},
+};
+
+function TripleShot(translationX, translationY, directionX, directionY) {
+	this.positionX = 0;
+	this.positionY = 0;
+	this.directionX = directionX / 2;
+	this.directionY = directionY / 2;
+	this.translationX = translationX;
+	this.translationY = translationY;
+	this.speed = 0;
+	this.image = new Image(50, 50);
+	this.image.src = './img/triple-fire.png';
+	this.toBeRemoved = false;
+	this.radius = 20;
+}
+TripleShot.prototype = {
+	draw() {
+		ctxAW.drawImage(this.image, this.translationX, this.translationY, 20, 20);
+	},
+	update() {
+		ctxAW = myGameArea.context;
+		this.translationX += this.directionX;
+		this.translationY += this.directionY;
+		this.draw();
+	},
+	waste() {
+		if (this.translationX > 860 || this.translationX < -60 || this.translationY > 660 || this.translationY < -60) {
+			this.toBeRemoved = true;
+		}
+	},
+	interact(object) {
+		if (object.firePower === 1) {
+			object.firePower = 3;
+		} else if (object.firePower === 3) {
+			object.firePower = 5;
+		}
+		object.fireBonusTimer += 1500;
 		this.toBeRemoved = true;
 	},
 };
