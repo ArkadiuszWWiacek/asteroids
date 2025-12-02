@@ -32,12 +32,12 @@ Klasyczna gra Asteroids zaimplementowana w czystym JavaScript z użyciem HTML5 C
 
 ## 📁 Struktura projektu
 
-├── index.html (canvas + UI)
-├── script.js (cała logika gry)​
-├── style.scss (stylizacja)
-├── img/
-│ ├── first-aid-kit.png
-│ └── triple-fire.png
+── index.html (canvas + UI)
+── script.js (cała logika gry)
+── style.scss (stylizacja)
+── img/
+ ├── first-aid-kit.png
+ └── triple-fire.png
 
 
 ## 🚀 Rozpoczęcie
